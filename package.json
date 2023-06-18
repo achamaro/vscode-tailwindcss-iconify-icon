@@ -66,6 +66,7 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
+    "@achamaro/tailwindcss-iconify-icon": "^0.1.2",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "20.2.5",
@@ -80,6 +81,7 @@
     "minimatch": "^9.0.1",
     "mocha": "^10.2.0",
     "prettier": "^2.8.8",
+    "tailwindcss": "^3.3.2",
     "typescript": "^5.1.3"
   }
 }

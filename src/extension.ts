@@ -1,3 +1,8 @@
+import {
+  generateSvgDataUri,
+  parseSvg,
+} from "@achamaro/tailwindcss-iconify-icon";
+import { readFile } from "fs/promises";
 import { sync } from "glob";
 import { minimatch } from "minimatch";
 import { basename, resolve } from "path";
@@ -6,7 +11,9 @@ import {
   CompletionItemKind,
   ExtensionContext,
   FileCreateEvent,
+  Hover,
   languages,
+  MarkdownString,
   Position,
   Range,
   TextDocument,
@@ -66,38 +73,97 @@ export function activate(context: ExtensionContext) {
     })
   );
 
-  const completionItemProvider = languages.registerCompletionItemProvider(
-    config.get("targetLanguage")!,
-    {
-      provideCompletionItems(document: TextDocument, position: Position) {
-        const line = document
-          .lineAt(position)
-          .text.slice(0, position.character);
+  // Completion
+  const itemSource = new WeakMap<CompletionItem, string>();
+  context.subscriptions.push(
+    languages.registerCompletionItemProvider(
+      config.get("targetLanguage")!,
+      {
+        provideCompletionItems(document: TextDocument, position: Position) {
+          const line = document
+            .lineAt(position)
+            .text.slice(0, position.character);
 
-        const icons = getIcons(workspace.getWorkspaceFolder(document.uri)!);
+          const icons = getIcons(workspace.getWorkspaceFolder(document.uri)!);
 
-        const match = line.match(/i-(?:\[[\w/_-]*)?]?$/);
+          const match = line.match(/i-(?:\[[\w/_-]*)?]?$/);
+          if (!match) {
+            return undefined;
+          }
+
+          const range = new Range(
+            new Position(position.line, position.character - match[0].length),
+            position
+          );
+
+          return [...icons].map(([name, path]) => {
+            const c = new CompletionItem(
+              `i-[${name}]`,
+              CompletionItemKind.Constant
+            );
+            c.range = range;
+            c.detail = name;
+
+            // Set the icon path to be used for resolving the icon path in the resolveCompletionItem method.
+            itemSource.set(c, path);
+
+            return c;
+          });
+        },
+
+        async resolveCompletionItem(item) {
+          let label;
+          if (typeof item.label === "string") {
+            label = item.label;
+          } else {
+            label = item.label.label;
+          }
+
+          const path = itemSource.get(item);
+          if (path) {
+            item.documentation = await createIconDocument(path);
+          }
+          return item;
+        },
+      },
+      "-",
+      "["
+    )
+  );
+
+  // Hover
+  context.subscriptions.push(
+    languages.registerHoverProvider(config.get("targetLanguage")!, {
+      async provideHover(document, position) {
+        let wordRange = document.getWordRangeAtPosition(position, /[\w[\]/-]+/);
+        if (wordRange === undefined) {
+          return undefined;
+        }
+
+        let currentWord = document
+          .lineAt(position.line)
+          .text.slice(wordRange.start.character, wordRange.end.character);
+
+        const match = currentWord.match(/i-\[([^\]]+)]$/);
         if (!match) {
           return undefined;
         }
 
-        const range = new Range(
-          new Position(position.line, position.character - match[0].length),
-          position
-        );
+        const icon = match[1];
 
-        return [...icons.keys()].map((v) => {
-          const c = new CompletionItem(`i-[${v}]`, CompletionItemKind.Constant);
-          c.range = range;
-          return c;
-        });
+        // Get the icons in the workspace folder.
+        const workspaceFolder = workspace.getWorkspaceFolder(document.uri)!;
+        const icons = getIcons(workspaceFolder);
+
+        const path = icons.get(icon);
+        if (!path) {
+          return undefined;
+        }
+
+        return new Hover(await createIconDocument(path));
       },
-    },
-    "-",
-    "["
+    })
   );
-
-  context.subscriptions.push(completionItemProvider);
 }
 
 export function deactivate() {}
@@ -188,4 +254,24 @@ function parseSvgPath(path: string, name: string) {
  */
 function getConfig(uri: Uri) {
   return workspace.getConfiguration("tailwindcssIconifyIconIntelliSense", uri);
+}
+
+/**
+ * Create a MarkdownString that includes an icon image.
+ * @param path - The path of the icon file.
+ * @returns A MarkdownString that includes the icon image.
+ */
+async function createIconDocument(path: string) {
+  const content = await readFile(path, "utf-8");
+  let data;
+  if (path.endsWith(".json")) {
+    data = generateSvgDataUri(JSON.parse(content));
+  } else {
+    data = parseSvg(content).data;
+  }
+  const documentation = new MarkdownString();
+  documentation.supportHtml = true;
+  documentation.value = `<img src="${data}" height="100" />`;
+
+  return documentation;
 }
