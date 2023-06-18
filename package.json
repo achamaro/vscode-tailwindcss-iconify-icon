@@ -1,5 +1,5 @@
 {
-  "name": "vscode-tailwindcss-iconify-icon",
+  "name": "tailwindcss-iconify-icon-intellisense",
   "publisher": "achamaro",
   "displayName": "TailwindCSS Iconify Icon IntelliSense",
   "description": "This extension supports @achamaro/tailwindcss-iconify-icon",
