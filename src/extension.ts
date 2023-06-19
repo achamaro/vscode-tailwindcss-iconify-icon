@@ -238,13 +238,6 @@ export function activate(context: ExtensionContext) {
         },
 
         async resolveCompletionItem(item) {
-          let label;
-          if (typeof item.label === "string") {
-            label = item.label;
-          } else {
-            label = item.label.label;
-          }
-
           const path = itemSource.get(item);
           if (path) {
             item.documentation = await createIconDocument(path);
