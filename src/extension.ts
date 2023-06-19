@@ -12,6 +12,7 @@ import {
   CompletionItem,
   CompletionItemKind,
   DecorationOptions,
+  DecorationRangeBehavior,
   ExtensionContext,
   FileCreateEvent,
   Hover,
@@ -86,7 +87,7 @@ export function activate(context: ExtensionContext) {
   // Decoration
   const workspaceDecorationTypes = new Map<
     string,
-    Map<string, TextEditorDecorationType>
+    Map<string, Promise<TextEditorDecorationType>>
   >();
   function getDecorationTypes(workspaceFolder: WorkspaceFolder) {
     const name = workspaceFolder.name;
@@ -121,31 +122,37 @@ export function activate(context: ExtensionContext) {
     const decorations: Map<TextEditorDecorationType, DecorationOptions[]> =
       new Map();
     const hideOptions: Range[] = [];
-    for (const match of matches) {
+    const promises = [...matches].map(async (match) => {
       const name = match[1];
       const icon = icons.get(name);
       if (!icon) {
-        continue;
+        return;
       }
 
       if (!decorationTypes.has(name)) {
-        let data = await createIconDataUri(icon);
-        data = data.replace(/ xmlns/, ` height=\'0.8em\' xmlns`);
         decorationTypes.set(
           name,
-          window.createTextEditorDecorationType({
-            before: {
-              contentIconPath: Uri.parse(data),
-              margin:
-                "0 1px; padding: 0 1px; transform: translateY(-1px); display: inline-block; vertical-align: middle",
-              backgroundColor: "rgb(255 255 255 / 10%)",
-              border: "1px solid rgb(255 255 255 / 20%); border-radius: 2px;",
-              height: "1.2em",
-            },
+          new Promise(async (resolve) => {
+            let data = await createIconDataUri(icon);
+            data = data.replace(/ xmlns/, ` height=\'0.8em\' xmlns`);
+            resolve(
+              window.createTextEditorDecorationType({
+                before: {
+                  contentIconPath: Uri.parse(data),
+                  margin:
+                    "0 1px; padding: 0 1px; transform: translateY(-1px); display: inline-block; vertical-align: middle",
+                  backgroundColor: "rgb(255 255 255 / 10%)",
+                  border:
+                    "1px solid rgb(255 255 255 / 20%); border-radius: 2px;",
+                  height: "1.2em",
+                },
+                rangeBehavior: DecorationRangeBehavior.ClosedClosed,
+              })
+            );
           })
         );
       }
-      const decorationType = decorationTypes.get(name)!;
+      const decorationType = await decorationTypes.get(name)!;
 
       if (!decorations.has(decorationType)) {
         decorations.set(decorationType, []);
@@ -169,11 +176,15 @@ export function activate(context: ExtensionContext) {
       ) {
         hideOptions.push(range);
       }
-    }
-
-    decorations.forEach((options, decorationType) => {
-      editor.setDecorations(decorationType, options);
     });
+
+    // Wait for all decoration types to be created.
+    await Promise.all(promises);
+
+    (await Promise.all([...decorationTypes.values()])).forEach((type) => {
+      editor.setDecorations(type, decorations.get(type) ?? []);
+    });
+
     editor.setDecorations(hiddenDecorationType, hideOptions);
   });
 
