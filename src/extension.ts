@@ -6,9 +6,12 @@ import { readFile } from "fs/promises";
 import { sync } from "glob";
 import { minimatch } from "minimatch";
 import { basename, resolve } from "path";
+import { throttle } from "throttle-debounce";
 import {
+  ColorThemeKind,
   CompletionItem,
   CompletionItemKind,
+  DecorationOptions,
   ExtensionContext,
   FileCreateEvent,
   Hover,
@@ -17,28 +20,33 @@ import {
   Position,
   Range,
   TextDocument,
+  TextEditorDecorationType,
   Uri,
+  window,
   workspace,
   WorkspaceFolder,
 } from "vscode";
 
 export function activate(context: ExtensionContext) {
+  // Get the window configuration.
   const config = workspace.getConfiguration(
     "tailwindcssIconifyIconIntelliSense"
   );
 
   // Clear icons when the configuration changes.
-  context.subscriptions.push(
-    workspace.onDidChangeConfiguration((e) => {
+  workspace.onDidChangeConfiguration(
+    (e) => {
       if (e.affectsConfiguration("tailwindcssIconifyIconIntelliSense")) {
         clearIcons();
       }
-    })
+    },
+    null,
+    context.subscriptions
   );
 
   // Add icons when a file is created.
-  context.subscriptions.push(
-    workspace.onDidCreateFiles(({ files }: FileCreateEvent) => {
+  workspace.onDidCreateFiles(
+    ({ files }: FileCreateEvent) => {
       files
         .filter(({ path }) => path.endsWith(".json") || path.endsWith(".svg"))
         .forEach((file) => {
@@ -70,7 +78,125 @@ export function activate(context: ExtensionContext) {
             icons.set(parseJsonPath(path), path);
           }
         });
-    })
+    },
+    null,
+    context.subscriptions
+  );
+
+  // Decoration
+  const workspaceDecorationTypes = new Map<
+    string,
+    Map<string, TextEditorDecorationType>
+  >();
+  function getDecorationTypes(workspaceFolder: WorkspaceFolder) {
+    const name = workspaceFolder.name;
+    if (!workspaceDecorationTypes.has(name)) {
+      workspaceDecorationTypes.set(name, new Map());
+    }
+    return workspaceDecorationTypes.get(name)!;
+  }
+
+  // The decoration type for hiding the icon name text.
+  // https://github.com/lokalise/i18n-ally/blob/43df97db80073230e528b7bf63610c903d886df8/src/editor/annotation.ts#L13-L15
+  const hiddenDecorationType = window.createTextEditorDecorationType({
+    textDecoration: `none; display: none;`,
+  });
+
+  const updateDecorations = throttle(1000, async () => {
+    const editor = window.activeTextEditor;
+    if (!editor) {
+      return;
+    }
+
+    const { document, selection } = editor;
+    const text = document.getText();
+
+    const workspaceFolder = workspace.getWorkspaceFolder(document.uri)!;
+    const icons = getIcons(workspaceFolder);
+    const decorationTypes = getDecorationTypes(workspaceFolder);
+
+    // Search icon strings in the active editor.
+    const matches = text.matchAll(/i-\[([\w/_-]+)]/g);
+
+    const decorations: Map<TextEditorDecorationType, DecorationOptions[]> =
+      new Map();
+    const hideOptions: Range[] = [];
+    for (const match of matches) {
+      const name = match[1];
+      const icon = icons.get(name);
+      if (!icon) {
+        continue;
+      }
+
+      if (!decorationTypes.has(name)) {
+        let data = await createIconDataUri(icon);
+        data = data.replace(/ xmlns/, ` height=\'0.8em\' xmlns`);
+        decorationTypes.set(
+          name,
+          window.createTextEditorDecorationType({
+            before: {
+              contentIconPath: Uri.parse(data),
+              margin:
+                "0 1px; padding: 0 1px; transform: translateY(-1px); display: inline-block; vertical-align: middle",
+              backgroundColor: "rgb(255 255 255 / 10%)",
+              border: "1px solid rgb(255 255 255 / 20%); border-radius: 2px;",
+              height: "1.2em",
+            },
+          })
+        );
+      }
+      const decorationType = decorationTypes.get(name)!;
+
+      if (!decorations.has(decorationType)) {
+        decorations.set(decorationType, []);
+      }
+      const options = decorations.get(decorationType)!;
+
+      const range = new Range(
+        editor.document.positionAt(match.index! + 3),
+        editor.document.positionAt(match.index! + match[0].length - 1)
+      );
+
+      options.push({
+        range,
+      });
+
+      if (
+        !new Range(
+          editor.document.positionAt(match.index!),
+          editor.document.positionAt(match.index! + match[0].length)
+        ).contains(selection)
+      ) {
+        hideOptions.push(range);
+      }
+    }
+
+    decorations.forEach((options, decorationType) => {
+      editor.setDecorations(decorationType, options);
+    });
+    editor.setDecorations(hiddenDecorationType, hideOptions);
+  });
+
+  updateDecorations();
+
+  window.onDidChangeActiveTextEditor(
+    updateDecorations,
+    null,
+    context.subscriptions
+  );
+  window.onDidChangeTextEditorSelection(
+    updateDecorations,
+    null,
+    context.subscriptions
+  );
+  workspace.onDidChangeTextDocument(
+    ({ document }) => {
+      if (document === window.activeTextEditor?.document) {
+        updateDecorations();
+      }
+    },
+    null,
+    context.subscriptions
   );
 
   // Completion
@@ -144,7 +270,7 @@ export function activate(context: ExtensionContext) {
           .lineAt(position.line)
           .text.slice(wordRange.start.character, wordRange.end.character);
 
-        const match = currentWord.match(/i-\[([^\]]+)]$/);
+        const match = currentWord.match(/i-\[([\w/_-]+)]$/);
         if (!match) {
           return undefined;
         }
@@ -262,6 +388,21 @@ function getConfig(uri: Uri) {
  * @returns A MarkdownString that includes the icon image.
  */
 async function createIconDocument(path: string) {
+  const data = await createIconDataUri(path);
+
+  const documentation = new MarkdownString();
+  documentation.supportHtml = true;
+  documentation.value = `<img src="${data}" height="56" />`;
+
+  return documentation;
+}
+
+/**
+ * Create a data URI of the icon.
+ * @param path - The path of the icon file.
+ * @returns A data URI of the icon.
+ */
+async function createIconDataUri(path: string) {
   const content = await readFile(path, "utf-8");
   let data;
   if (path.endsWith(".json")) {
@@ -269,9 +410,18 @@ async function createIconDocument(path: string) {
   } else {
     data = parseSvg(content).data;
   }
-  const documentation = new MarkdownString();
-  documentation.supportHtml = true;
-  documentation.value = `<img src="${data}" height="100" />`;
 
-  return documentation;
+  if (isDark()) {
+    data = data.replace(/currentColor/g, "ivory");
+  }
+
+  return data;
+}
+
+/**
+ * Determines whether the active theme is dark.
+ * @returns True if the active theme is dark, false otherwise.
+ */
+function isDark() {
+  return window.activeColorTheme.kind === ColorThemeKind.Dark;
 }
