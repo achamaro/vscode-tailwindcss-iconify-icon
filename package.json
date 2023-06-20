@@ -10,6 +10,10 @@
     "achamaro/tailwindcss-iconify-icon"
   ],
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/achamaro/vscode-tailwindcss-iconify-icon.git"
+  },
   "engines": {
     "vscode": "^1.79.0"
   },
@@ -67,7 +71,7 @@
   },
   "devDependencies": {
     "@achamaro/tailwindcss-iconify-icon": "^0.1.2",
-    "@types/glob": "^8.1.0",
+    "@types/minimatch": "^5.1.2",
     "@types/mocha": "^10.0.1",
     "@types/node": "20.2.5",
     "@types/throttle-debounce": "^5.0.0",
@@ -79,7 +83,7 @@
     "eslint": "^8.41.0",
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "eslint-plugin-unused-imports": "^2.0.0",
-    "glob": "^8.1.0",
+    "glob": "^10.2.7",
     "minimatch": "^9.0.1",
     "mocha": "^10.2.0",
     "prettier": "^2.8.8",
