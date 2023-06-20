@@ -9,6 +9,7 @@
     "icon",
     "achamaro/tailwindcss-iconify-icon"
   ],
+  "icon": "./icon.png",
   "version": "0.0.1",
   "repository": {
     "type": "git",
