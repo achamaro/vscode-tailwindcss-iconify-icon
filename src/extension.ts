@@ -112,7 +112,11 @@ export function activate(context: ExtensionContext) {
     const { document, selection } = editor;
     const text = document.getText();
 
-    const workspaceFolder = workspace.getWorkspaceFolder(document.uri)!;
+    const workspaceFolder = workspace.getWorkspaceFolder(document.uri);
+    if (!workspaceFolder) {
+      return;
+    }
+
     const icons = getIcons(workspaceFolder);
     const decorationTypes = getDecorationTypes(workspaceFolder);
 
