@@ -2,6 +2,7 @@ import {
   generateSvgDataUri,
   parseSvg,
 } from "@achamaro/tailwindcss-iconify-icon";
+import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { sync } from "glob";
 import { minimatch } from "minimatch";
@@ -128,7 +129,8 @@ export function activate(context: ExtensionContext) {
     const hideOptions: Range[] = [];
     const promises = [...matches].map(async (match) => {
       const name = match[1];
-      const icon = icons.get(name);
+      // If `name` is not set, try to find the icon from the directory.
+      const icon = icons.get(name) ?? retrieveIcon(workspaceFolder, name);
       if (!icon) {
         return;
       }
@@ -356,6 +358,33 @@ function retrieveIconList(workspaceFolder: WorkspaceFolder) {
   });
 
   return icons;
+}
+
+function retrieveIcon(workspaceFolder: WorkspaceFolder, name: string) {
+  const { uri } = workspaceFolder;
+  const config = getConfig(uri);
+  const icons = getIcons(workspaceFolder);
+
+  let path;
+
+  // retrieve the json file from the download directory.
+  path = resolve(uri.path, config.get("downloadDir")!, `${name}.json`);
+  if (existsSync(path)) {
+    icons.set(name, path);
+    return path;
+  }
+
+  // retrieve the svg file from the custom svg directory.
+  const [svgSet, svgName] = name.split("/");
+  const customSvg: Record<string, string> = config.get("customSvg") ?? {};
+
+  if (customSvg[svgSet]) {
+    path = resolve(uri.path, customSvg[svgSet], `${svgName}.svg`);
+    if (existsSync(path)) {
+      icons.set(name, path);
+      return path;
+    }
+  }
 }
 
 /**
