@@ -5,8 +5,18 @@ This extension supports [@achamaro/tailwindcss-iconify-icon](https://www.npmjs.c
 ## Features
 
 - Completion for icon class name
+- Display icon inline
+
+![tailwindcss-iconify-icon-intellisense](tailwindcss-iconify-icon-intellisense.png)
 
 ## Extension Settings
 
-- `tailwindcssIconifyIconIntelliSense.downloadDir`
-- `tailwindcssIconifyIconIntelliSense.customSvg`
+### tailwindcssIconifyIconIntelliSense.downloadDir
+
+- **Type**: `string`
+- **Default**: `src/assets/icons`
+
+### tailwindcssIconifyIconIntelliSense.customSvg
+
+- **Type**: `Record<string, string>`
+- **Default**: `{}`
