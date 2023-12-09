@@ -30,9 +30,13 @@
         "id": "TailwindCSSIconifyIconIntelliSense",
         "title": "TailwindCSS Iconify Icon IntelliSense",
         "properties": {
+          "tailwindcssIconifyIconIntelliSense.iconDir": {
+            "type": "string",
+            "description": "iconDir",
+            "scope": "resource"
+          },
           "tailwindcssIconifyIconIntelliSense.downloadDir": {
             "type": "string",
-            "default": "src/assets/icons",
             "description": "downloadDir",
             "scope": "resource"
           },

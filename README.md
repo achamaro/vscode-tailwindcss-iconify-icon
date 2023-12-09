@@ -11,12 +11,17 @@ This extension supports [@achamaro/tailwindcss-iconify-icon](https://www.npmjs.c
 
 ## Extension Settings
 
-### tailwindcssIconifyIconIntelliSense.downloadDir
+### tailwindcssIconifyIconIntelliSense.iconDir
 
 - **Type**: `string`
 - **Default**: `src/assets/icons`
 
-### tailwindcssIconifyIconIntelliSense.customSvg
+### tailwindcssIconifyIconIntelliSense.downloadDir (deprecated)
+
+- **Type**: `string`
+- **Default**: `src/assets/icons`
+
+### tailwindcssIconifyIconIntelliSense.customSvg (deprecated)
 
 - **Type**: `Record<string, string>`
 - **Default**: `{}`

@@ -54,6 +54,7 @@ export function activate(context: ExtensionContext) {
         .forEach((file) => {
           const config = getConfig(file);
           const workspaceFolder = workspace.getWorkspaceFolder(file)!;
+          const iconDir = getIconDir(file);
           const icons = getIcons(workspaceFolder);
 
           const { path } = file;
@@ -64,20 +65,19 @@ export function activate(context: ExtensionContext) {
             )) {
               const pattern = resolve(workspaceFolder.uri.path, v, "*.svg");
               if (minimatch(path, pattern)) {
-                icons.set(parseSvgPath(path, name), path);
+                icons.set(parseCustomSvgPath(path, name), path);
                 return;
               }
             }
-            return;
           }
 
           const pattern = resolve(
             workspaceFolder.uri.path,
-            config.get("downloadDir")!,
-            "*/*.json"
+            iconDir,
+            "*/*.{json,svg}"
           );
           if (minimatch(path, pattern)) {
-            icons.set(parseJsonPath(path), path);
+            icons.set(parseIconPath(path), path);
           }
         });
     },
@@ -338,12 +338,11 @@ function retrieveIconList(workspaceFolder: WorkspaceFolder) {
   const icons = new Map<string, string>();
 
   const config = getConfig(uri);
+  const iconDir = getIconDir(uri);
 
-  const iconifyIcons = sync(
-    resolve(uri.path, config.get("downloadDir")!, "*/*.json")
-  );
-  iconifyIcons.forEach((v) => {
-    icons.set(parseJsonPath(v), v);
+  const iconDirIcons = sync(resolve(uri.path, iconDir, "*/*.{json,svg}"));
+  iconDirIcons.forEach((v) => {
+    icons.set(parseIconPath(v), v);
   });
 
   const customIcons = [
@@ -353,7 +352,7 @@ function retrieveIconList(workspaceFolder: WorkspaceFolder) {
   ];
   customIcons.forEach(([name, customIcons]) => {
     customIcons.forEach((v) => {
-      icons.set(parseSvgPath(v, name), v);
+      icons.set(parseCustomSvgPath(v, name), v);
     });
   });
 
@@ -364,11 +363,12 @@ function retrieveIcon(workspaceFolder: WorkspaceFolder, name: string) {
   const { uri } = workspaceFolder;
   const config = getConfig(uri);
   const icons = getIcons(workspaceFolder);
+  const iconDir = getIconDir(uri);
 
   let path;
 
   // retrieve the json file from the download directory.
-  path = resolve(uri.path, config.get("downloadDir")!, `${name}.json`);
+  path = resolve(uri.path, iconDir, `${name}.{json,svg}`);
   if (existsSync(path)) {
     icons.set(name, path);
     return path;
@@ -392,9 +392,9 @@ function retrieveIcon(workspaceFolder: WorkspaceFolder, name: string) {
  * @param path - The path of the icon file.
  * @returns The icon name.
  */
-function parseJsonPath(path: string) {
+function parseIconPath(path: string) {
   return path
-    .replace(/\.json$/, "")
+    .replace(/\.(json|svg)$/, "")
     .split("/")
     .slice(-2)
     .join("/");
@@ -406,7 +406,7 @@ function parseJsonPath(path: string) {
  * @param name - The name of the icon set.
  * @returns The name icon.
  */
-function parseSvgPath(path: string, name: string) {
+function parseCustomSvgPath(path: string, name: string) {
   return `${name}/${basename(path, ".svg")}`;
 }
 
@@ -417,6 +417,13 @@ function parseSvgPath(path: string, name: string) {
  */
 function getConfig(uri: Uri) {
   return workspace.getConfiguration("tailwindcssIconifyIconIntelliSense", uri);
+}
+
+function getIconDir(uri: Uri): string {
+  const config = getConfig(uri);
+  return (
+    config.get("iconDir") || config.get("downloadDir") || "src/assets/icons"
+  );
 }
 
 /**
