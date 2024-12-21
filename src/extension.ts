@@ -141,6 +141,22 @@ export function activate(context: ExtensionContext) {
           new Promise(async (resolve) => {
             let data = await createIconDataUri(icon);
             data = data.replace(/ xmlns/, ` height=\'0.8em\' xmlns`);
+
+            // Convert percent encoded data URI to a base64 string.
+            // VSCode fails to display percent encoded data URIs.
+            const [head, ...body] = data.split(",");
+            data = `${head};base64,${Buffer.from(
+              body
+                .join(",")
+                .replaceAll("%23", "#")
+                .replaceAll("%7B", "{")
+                .replaceAll("%7D", "}")
+                .replaceAll("%3C", "<")
+                .replaceAll("%3E", ">")
+                .replaceAll("%25", "%")
+                .replaceAll("'", '"')
+            ).toString("base64")}`;
+
             resolve(
               window.createTextEditorDecorationType({
                 before: {
