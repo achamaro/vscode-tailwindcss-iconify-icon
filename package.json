@@ -10,7 +10,7 @@
     "achamaro/tailwindcss-iconify-icon"
   ],
   "icon": "./icon.png",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/achamaro/vscode-tailwindcss-iconify-icon.git"
@@ -25,6 +25,12 @@
     "onLanguage"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "tailwindcss-iconify-icon-intellisense.toggle-icon-name",
+        "title": "Toggle icon name"
+      }
+    ],
     "configuration": [
       {
         "id": "TailwindCSSIconifyIconIntelliSense",

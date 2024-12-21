@@ -10,6 +10,7 @@ import { basename, resolve } from "path";
 import { throttle } from "throttle-debounce";
 import {
   ColorThemeKind,
+  commands,
   CompletionItem,
   CompletionItemKind,
   DecorationOptions,
@@ -21,6 +22,8 @@ import {
   MarkdownString,
   Position,
   Range,
+  StatusBarAlignment,
+  StatusBarItem,
   TextDocument,
   TextEditorDecorationType,
   Uri,
@@ -29,7 +32,52 @@ import {
   WorkspaceFolder,
 } from "vscode";
 
+// Toggle icon name
+const toggleIconName: {
+  stateId: string;
+  commandId: string;
+} = {
+  stateId: "tailwindcss-iconify-icon-intellisense.toggle-icon-name-state",
+  commandId: "tailwindcss-iconify-icon-intellisense.toggle-icon-name",
+};
+
+let statusBarItem!: StatusBarItem;
+
 export function activate(context: ExtensionContext) {
+  // Toggle icon name
+  context.subscriptions.push(
+    commands.registerCommand(toggleIconName.commandId, async () => {
+      // toggle state
+      await context.workspaceState.update(
+        toggleIconName.stateId,
+        !context.workspaceState.get<boolean>(toggleIconName.stateId)
+      );
+      // update status bar
+      updateStatusBarToggleIconName();
+      // update decorations
+      updateDecorations();
+    })
+  );
+
+  // Status bar item
+  statusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 100);
+  statusBarItem.name = context.extension.packageJSON.displayName;
+  statusBarItem.command = toggleIconName.commandId;
+  statusBarItem.tooltip = "Toggle icon name";
+
+  function updateStatusBarToggleIconName() {
+    const isVisible = context.workspaceState.get<boolean>(
+      toggleIconName.stateId
+    );
+    if (statusBarItem) {
+      statusBarItem.text = isVisible
+        ? "[$(smiley)$(symbol-text)]"
+        : "[$(smiley)]";
+    }
+  }
+  updateStatusBarToggleIconName();
+  statusBarItem.show();
+
   // Get the window configuration.
   const config = workspace.getConfiguration(
     "tailwindcssIconifyIconIntelliSense"
@@ -120,6 +168,9 @@ export function activate(context: ExtensionContext) {
 
     const icons = getIcons(workspaceFolder);
     const decorationTypes = getDecorationTypes(workspaceFolder);
+    const isVisibleIconName = context.workspaceState.get<boolean>(
+      toggleIconName.stateId
+    );
 
     // Search icon strings in the active editor.
     const matches = text.matchAll(/i-\[([\w/_-]+)]/g);
@@ -191,6 +242,7 @@ export function activate(context: ExtensionContext) {
       });
 
       if (
+        !isVisibleIconName &&
         !new Range(
           editor.document.positionAt(match.index!),
           editor.document.positionAt(match.index! + match[0].length)
@@ -318,7 +370,9 @@ export function activate(context: ExtensionContext) {
   );
 }
 
-export function deactivate() {}
+export function deactivate() {
+  statusBarItem?.dispose();
+}
 
 const workspaceIcons = new Map<string, Map<string, string>>();
 

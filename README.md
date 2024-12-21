@@ -4,8 +4,11 @@ This extension supports [@achamaro/tailwindcss-iconify-icon](https://www.npmjs.c
 
 ## Features
 
-- Completion for icon class name
-- Display icon inline
+Features:
+
+- Autocomplete suggestions for icon class names
+- Inline icon preview in editor
+  - Quickly show/hide icon names using status bar toggle
 
 ![tailwindcss-iconify-icon-intellisense](tailwindcss-iconify-icon-intellisense.png)
 
@@ -15,13 +18,3 @@ This extension supports [@achamaro/tailwindcss-iconify-icon](https://www.npmjs.c
 
 - **Type**: `string`
 - **Default**: `src/assets/icons`
-
-### tailwindcssIconifyIconIntelliSense.downloadDir (deprecated)
-
-- **Type**: `string`
-- **Default**: `src/assets/icons`
-
-### tailwindcssIconifyIconIntelliSense.customSvg (deprecated)
-
-- **Type**: `Record<string, string>`
-- **Default**: `{}`
