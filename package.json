@@ -16,7 +16,7 @@
     "url": "git+https://github.com/achamaro/vscode-tailwindcss-iconify-icon.git"
   },
   "engines": {
-    "vscode": "^1.79.0"
+    "vscode": "^1.96.0"
   },
   "categories": [
     "Other"
